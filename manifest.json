@@ -1,0 +1,17 @@
+
+{
+  "name": "La Mossa del Cavallo",
+  "short_name": "Cavallo",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#27ae60",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Chess_nltt45.svg/1024px-Chess_nltt45.svg.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

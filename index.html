@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+  <meta charset="UTF-8">
+  <title>La Mossa del Cavallo 🐴</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: url('https://images.unsplash.com/photo-1602925422335-8487478f8a26?auto=format&fit=crop&w=400&q=80') no-repeat center center fixed;
+      background-size: cover;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      backdrop-filter: blur(3px);
+    }
+    h1 {
+      margin-top: 20px;
+      font-size: 2.5em;
+      text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
+    }
+    #board {
+      display: grid;
+      gap: 6px;
+      margin: 20px auto;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+    .cell {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      overflow: hidden;
+    }
+    .cell:hover {
+      transform: scale(1.08);
+    }
+    .visited {
+      background-color: #0abde3 !important;
+      color: white;
+    }
+    .knight {
+      background-color: transparent !important;
+      background-image: url('https://images.unsplash.com/photo-1602925422335-8487478f8a26?auto=format&fit=crop&w=400&q=80');
+      background-size: cover;
+      background-position: center;
+    }
+    .blocked {
+      background-color: #222 !important;
+      cursor: not-allowed;
+    }
+    #message {
+      margin: 10px;
+      font-size: 20px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px #000;
+    }
+    #controls {
+      margin: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 12px 24px;
+      background: #ff6f61;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    button:hover {
+      background: #ff3b2e;
+    }
+  .possible {
+      box-shadow: 0 0 0 3px #2ecc71 inset;
+    }
+    
+.knight {
+  font-family: 'Segoe UI Symbol', 'Noto Emoji', sans-serif;
+  font-size: 2.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: jump 0.3s ease;
+}
+@keyframes jump {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+#counter {
+  font-size: 1.2em;
+  margin-top: -10px;
+  margin-bottom: 10px;
+  color: #444;
+}
+</style>
+</head>
+<body>
+
+<h1>La Mossa del Cavallo 🐴</h1>
+<h2>Livello: <span id="level">1</span></h2><div id="counter">Mosse: <span id="moves">1</span></div>
+<div id="board"></div>
+<div id="message"></div>
+<div id="controls">
+  <button onclick="resetLevel()">🔁 Reset livello</button>
+  <button onclick="resetProgress()">🗑️ Reset tutto</button>
+</div>
+
+<audio id="moveSound" src="https://www.fesliyanstudios.com/play-mp3/387" preload="auto"></audio>
+<audio id="winSound" src="https://www.fesliyanstudios.com/play-mp3/6678" preload="auto"></audio>
+
+<script>
+  const boardElement = document.getElementById('board');
+  const messageElement = document.getElementById('message');
+  const levelElement = document.getElementById('level');
+  const moveSound = document.getElementById('moveSound');
+  const winSound = document.getElementById('winSound');
+  const bgMusic = document.getElementById('bgMusic');
+
+  let level = parseInt(localStorage.getItem('knight-level')) || 1;
+  let size = 5 + (level - 1);
+  let knight = { x: 0, y: 0 };
+  let visited = Array(size).fill().map(() => Array(size).fill(false));
+  let moveCount = 1;
+  let blocked = Array(size).fill().map(() => Array(size).fill(false));
+
+  function initBlocked() {
+    let numBlocks = Math.floor(size * size * 0.1);
+    while (numBlocks > 0) {
+      let x = Math.floor(Math.random() * size);
+      let y = Math.floor(Math.random() * size);
+      if ((x !== 0 || y !== 0) && !blocked[y][x]) {
+        blocked[y][x] = true;
+        numBlocks--;
+      }
+    }
+  }
+
+  function createBoard() {
+    boardElement.innerHTML = '';
+    boardElement.style.gridTemplateColumns = `repeat(${size}, 60px)`;
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        if (isValidMove(x, y)) cell.classList.add('possible');
+
+        if (blocked[y][x]) {
+          cell.classList.add('blocked');
+        } else if (x === knight.x && y === knight.y) {
+  cell.classList.add('knight');
+  cell.innerText = '🐴';
+} else if (visited[y][x]) {
+          cell.classList.add('visited');
+          cell.innerText = '✓';
+        }
+
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+        boardElement.appendChild(cell);
+      }
+    }
+  }
+
+  function isValidMove(x, y) {
+    const dx = Math.abs(x - knight.x);
+    const dy = Math.abs(y - knight.y);
+    return (
+      x >= 0 && x < size &&
+      y >= 0 && y < size &&
+      !visited[y][x] &&
+      !blocked[y][x] &&
+      ((dx === 2 && dy === 1) || (dx === 1 && dy === 2))
+    );
+  }
+
+  function hasMoves() {
+    const directions = [
+      [2, 1], [1, 2], [-1, 2], [-2, 1],
+      [-2, -1], [-1, -2], [1, -2], [2, -1]
+    ];
+    return directions.some(([dx, dy]) => {
+      const nx = knight.x + dx;
+      const ny = knight.y + dy;
+      return isValidMove(nx, ny);
+    });
+  }
+
+  function handleClick(e) {
+    const x = parseInt(e.target.dataset.x);
+    const y = parseInt(e.target.dataset.y);
+    if (isValidMove(x, y)) {
+      knight = { x, y };
+      visited[y][x] = true;
+      moveCount++;
+      document.getElementById('moves').innerText = moveCount;
+      moveSound.play();
+      createBoard();
+
+      const allVisited = visited.flat().filter((v, i) => !blocked[Math.floor(i / size)][i % size]).every(v => v);
+      if (allVisited) {
+        winSound.play();
+        messageElement.innerText = `✔️ Livello completato in ${moveCount} mosse!`;
+        setTimeout(() => {
+          level++;
+          localStorage.setItem('knight-level', level);
+          levelElement.innerText = level;
+          size = 5 + (level - 1);
+          knight = { x: 0, y: 0 };
+          visited = Array(size).fill().map(() => Array(size).fill(false));
+          blocked = Array(size).fill().map(() => Array(size).fill(false));
+          visited[0][0] = true;
+          initBlocked();
+          createBoard();
+          messageElement.innerText = '';
+        }, 1200);
+      } else if (!hasMoves()) {
+        messageElement.innerText = '⛔ Nessuna mossa disponibile!';
+        setTimeout(() => {
+          messageElement.innerText = '';
+        }, 1500);
+      }
+    }
+  }
+
+  function resetLevel() {
+    visited = Array(size).fill().map(() => Array(size).fill(false));
+    blocked = Array(size).fill().map(() => Array(size).fill(false));
+    knight = { x: 0, y: 0 };
+    visited[0][0] = true;
+    initBlocked();
+    createBoard();
+    messageElement.innerText = '';
+  }
+
+  function resetProgress() {
+    localStorage.removeItem('knight-level');
+    level = 1;
+    size = 5;
+    knight = { x: 0, y: 0 };
+    visited = Array(size).fill().map(() => Array(size).fill(false));
+    blocked = Array(size).fill().map(() => Array(size).fill(false));
+    visited[0][0] = true;
+    levelElement.innerText = level;
+    initBlocked();
+    createBoard();
+    messageElement.innerText = '';
+  }
+
+  boardElement.addEventListener('click', handleClick);
+  visited[0][0] = true;
+  initBlocked();
+  levelElement.innerText = level;
+  createBoard();
+    </script>
+
+</body>
+</html>
